@@ -35,7 +35,32 @@ def login(request):
     return render(request,"login.html")
 
 def create_appointment(request):
- return render(request,"appoint/create-appointment.html")
+    if "user" in request.session:
+        if request.method=="POST":
+            name=request.POST.get("name")
+            description=request.POST.get("description")
+            time=request.POST.get("time")
+            date=request.POST.get("date")
+            try:
+                user = client.query(q.get(q.match(q.index("events_index"), date,time)))
+                messages.add_message(request, messages.INFO, 'An Event is already scheduled for the specified time.')
+                return redirect("App:create-appointment")
+            except:
+                user = client.query(q.create(q.collection("Events"), {
+                    "data": {
+                        "name": name,
+                        "description": description,
+                        "time": time,
+                        "date": date,
+                        "user": request.session["user"]["username"],
+                        "status": 'False',
+                    }
+                }))
+                messages.add_message(request, messages.INFO, 'Appointment Scheduled Successfully.')
+                return redirect("App:create-appointment")
+        return render(request,"appoint/create-appointment.html")
+    else:
+        return HttpResponseNotFound("Page not found")
 
 
 
@@ -44,7 +69,15 @@ def dashboard(request):
 
 
 def today_appointment(request):
- return render(request,"today-appointment.html")
+   if "user" in request.session:
+       appointments=client.query(q.paginate(q.match(q.index("events_today_paginate"), request.session["user"]["username"],str(datetime.date.today()))))["data"]
+       appointments_count=len(appointments)
+       page_number = int(request.GET.get('page', 1))
+       appointment = client.query(q.get(q.ref(q.collection("Events"), appointments[page_number-1].id())))["data"]
+       context={"count":appointments_count,"appointment":appointment,"page_num":page_number, "next_page": min(appointments_count, page_number + 1), "prev_page": max(1, page_number - 1)}
+       return render(request,"today-appointment.html",context)
+   else:
+       return HttpResponseNotFound("Page not found")
 
 
 def all_appointment(request):
