@@ -86,7 +86,18 @@ def today_appointment(request):
        return HttpResponseNotFound("Page not found")
 
 def all_appointment(request):
- return render(request,"all-appointment.html")
+   if "user" in request.session:
+       appointments=client.query(q.paginate(q.match(q.index("events_index_paginate"), request.session["user"]["username"])))["data"]
+       appointments_count=len(appointments)
+       page_number = int(request.GET.get('page', 1))
+       appointment = client.query(q.get(q.ref(q.collection("Events"), appointments[page_number-1].id())))["data"]
+       if request.GET.get("delete"):
+           client.query(q.delete(q.ref(q.collection("Events"), appointments[page_number-1].id())))
+           return redirect("App:all-appointment")
+       context={"count":appointments_count,"appointment":appointment, "next_page": min(appointments_count, page_number + 1), "prev_page": max(1, page_number - 1)}
+       return render(request,"all-appointment.html",context)
+   else:
+       return HttpResponseNotFound("Page not found")
 
 def register(request):
     if request.method == "POST":
