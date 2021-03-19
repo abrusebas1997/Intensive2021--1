@@ -15,7 +15,24 @@ client = FaunaClient(secret="fnAEEpXoUEACANrA9kCkDGRnaTM0De2OHmQMFgVS")
 indexes = client.query(q.paginate(q.indexes()))
 
 def login(request):
- return render(request,"login.html")
+    if request.method == "POST":
+        username = request.POST.get("username").strip().lower()
+        password = request.POST.get("password")
+
+        try:
+            user = client.query(q.get(q.match(q.index("users_index"), username)))
+            if hashlib.sha512(password.encode()).hexdigest() == user["data"]["password"]:
+                request.session["user"] = {
+                    "id": user["ref"].id(),
+                    "username": user["data"]["username"]
+                }
+                return redirect("App:dashboard")
+            else:
+                raise Exception()
+        except:
+            messages.add_message(request, messages.INFO,"You have supplied invalid login credentials, please try again!", "danger")
+            return redirect("App:login")
+    return render(request,"login.html")
 
 def create_appointment(request):
  return render(request,"appoint/create-appointment.html")
